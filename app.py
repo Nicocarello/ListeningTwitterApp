@@ -19,7 +19,7 @@ st.set_page_config(
 # --- Dominio de correo electrónico de la empresa (¡IMPORTANTE: CAMBIA ESTO!) ---
 # Reemplaza 'tuempresa.com' con el dominio real de tu empresa.
 # Por ejemplo, si los correos son 'usuario@miempresa.com', entonces el dominio es 'miempresa.com'.
-COMPANY_EMAIL_DOMAIN = "tuempresa.com" # <--- ¡CAMBIA ESTO!
+COMPANY_EMAIL_DOMAIN = "publicalatam.com" # <--- ¡CAMBIA ESTO!
 
 # --- Inicializar el estado de la sesión ---
 if "logged_in" not in st.session_state:
