@@ -1,0 +1,5 @@
+streamlit
+apify-client
+pandas
+google-generativeai
+plotly
