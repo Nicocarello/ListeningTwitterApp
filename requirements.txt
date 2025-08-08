@@ -5,3 +5,4 @@ google-generativeai
 plotly
 reportlab
 kaleido
+google-chrome-stable
