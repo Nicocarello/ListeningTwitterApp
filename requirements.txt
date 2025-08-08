@@ -3,3 +3,4 @@ apify-client
 pandas
 google-generativeai
 plotly
+reportlab
