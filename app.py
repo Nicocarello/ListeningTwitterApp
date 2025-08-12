@@ -161,7 +161,7 @@ def main_app():
             actor_id = "apidojo/twitter-scraper-lite"
             run_input = {
                 "end": end_date,
-                "maxItems": 100, # Mantener un límite razonable para evitar usos excesivos de la API
+                "maxItems": 10000, # Mantener un límite razonable para evitar usos excesivos de la API
                 "searchTerms": search_terms,
                 "sort": sort_type,
                 "start": start_date
@@ -634,3 +634,4 @@ if st.session_state["logged_in"]:
     main_app()
 else:
     login_page()
+
