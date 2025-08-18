@@ -196,49 +196,59 @@ def main_app():
     # # --- Funciones IA ---
 
     def clasificar_tweets_en_lote(tweets, contexto, model):
-        """
-        Clasifica un lote de tweets en una sola llamada a la API de Gemini.
-        
-        Args:
-            tweets (list): Una lista de strings, donde cada string es un tweet.
-            contexto (str): El contexto para el análisis de sentimiento.
-            model: El modelo de Gemini GenerativeModel.
-        
-        Returns:
-            list: Una lista de strings con los sentimientos clasificados (POSITIVO, NEGATIVO, NEUTRO).
-        """
+        import json
+        import re
+
         if not model:
             return ["NEUTRO"] * len(tweets)
 
-        prompt = f"""CONTEXTO: {contexto}
-        Clasifica el sentimiento de cada uno de los siguientes tweets en POSITIVO, NEGATIVO o NEUTRO.
-        Responde con una lista de sentimientos, un sentimiento por cada tweet.
-        El formato de salida debe ser estrictamente una lista JSON de strings, por ejemplo: `["POSITIVO", "NEGATIVO", "NEUTRO"]`.
-        
-        TWEETS:
-        """
-        for i, tweet in enumerate(tweets):
-            prompt += f"Tweet {i+1}: '{tweet}'\n"
-        
-        prompt += "SENTIMIENTOS (en formato de lista JSON):"
+        tweets_preparados = [
+            tweet.replace('"', "'").replace("\n", " ").strip()[:280]
+            for tweet in tweets
+        ]
+
+        prompt = f"""
+    Eres un modelo de lenguaje experto en análisis de sentimiento de redes sociales.
+
+    CONTEXTO GENERAL: {contexto}
+
+    Clasifica el sentimiento de los siguientes tweets. Para cada tweet responde en una línea con el formato:
+    Tweet 1: POSITIVO
+    Tweet 2: NEGATIVO
+    Tweet 3: NEUTRO
+
+    Sentimientos permitidos: POSITIVO, NEGATIVO, NEUTRO.
+
+    TWEETS:
+    """
+
+        for i, tweet in enumerate(tweets_preparados):
+            prompt += f'\nTweet {i+1}: "{tweet}"'
+
+        prompt += "\n\nClasificación:\n"
 
         try:
             response = model.generate_content(prompt, generation_config={"temperature": 0.2})
-            
-            # Limpiar la respuesta para que sea un JSON válido si hay caracteres extra
-            response_text = response.text.strip().replace("```json", "").replace("```", "").strip()
-            
-            sentimientos_ia = json.loads(response_text)
-            
-            if isinstance(sentimientos_ia, list) and len(sentimientos_ia) == len(tweets):
-                return [s.upper() for s in sentimientos_ia]
-            else:
-                # En caso de que la respuesta no tenga el formato correcto, retornamos un valor por defecto
-                return ["NEUTRO"] * len(tweets)
+            respuesta = response.text.strip()
+
+            # Extraer los valores usando regex
+            matches = re.findall(r"Tweet\s*\d+:\s*(POSITIVO|NEGATIVO|NEUTRO)", respuesta, re.IGNORECASE)
+            sentimientos = [s.upper() for s in matches]
+
+            # Si no coincide la cantidad, asumir NEUTRO
+            if len(sentimientos) != len(tweets):
+                st.warning(f"❗ Gemini devolvió {len(sentimientos)} sentimientos para {len(tweets)} tweets. Se completará con NEUTRO.")
+                while len(sentimientos) < len(tweets):
+                    sentimientos.append("NEUTRO")
+                if len(sentimientos) > len(tweets):
+                    sentimientos = sentimientos[:len(tweets)]
+
+            return sentimientos
+
         except Exception as e:
-            # En caso de error, también retornamos un valor por defecto
-            st.error(f"Error en la clasificación de tweets en lote: {e}")
+            st.error(f"❌ Error en la clasificación con Gemini: {e}")
             return ["NEUTRO"] * len(tweets)
+
     
     # --- Función actualizada para mostrar los temas ---
     def mostrar_temas_con_contraste(texto_temas):
@@ -255,7 +265,7 @@ def main_app():
         matches = re.findall(pattern, texto_temas, re.MULTILINE | re.DOTALL)
 
         if not matches:
-            st.warning("No se pudo extraer el formato de temas esperado. Mostrando texto sin formato.")
+            # st.warning("No se pudo extraer el formato de temas esperado. Mostrando texto sin formato.")
             st.markdown(texto_temas)
             return
 
@@ -411,6 +421,35 @@ def main_app():
             st.success(f"✅ Se recolectaron {len(df)} tweets únicos.")
             st.subheader("Primeros tweets encontrados:")
             st.dataframe(df.head(10))
+
+            # --- Métricas de Alcance e Interacciones (con estilo grande) ---
+            total_views = df['viewCount'].sum()
+            total_interacciones = (
+                df[['likeCount', 'replyCount', 'retweetCount', 'quoteCount', 'bookmarkCount']]
+                .fillna(0).sum().sum()
+            )
+
+            st.markdown(f"""
+            <div style="text-align: center; padding: 20px 0;">
+                <div style="font-size: 2.2em; font-weight: bold; color: #FFFFFF;">
+                    📈 Alcance Total: {int(total_views):,} visualizaciones
+                </div>
+                <div style="font-size: 2.2em; font-weight: bold; color: #FFFFFF;">
+                    💬 Interacciones Totales: {int(total_interacciones):,}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            avg_views = total_views / len(df)
+            avg_interacciones = total_interacciones / len(df)
+
+            st.markdown(f"""
+            <div style="text-align: center; font-size: 1.5em; color: #FFFFFF; margin-top: -10px;">
+                Promedio por Tweet: {int(avg_views):,} vistas / {int(avg_interacciones):,} interacciones
+            </div>
+            """, unsafe_allow_html=True)
+
+
 
             # --- Clasificación de Sentimientos (en lotes) ---
             st.subheader("🧠 Clasificando Sentimientos...")
@@ -614,16 +653,16 @@ def main_app():
                 st.plotly_chart(fig_timeline, use_container_width=True)
 
 
-            # --- Descarga ---
-            st.markdown("---")
-            st.subheader("⬇️ Descargar Resultados")
-            st.download_button(
-                label="Descargar resultados completos (CSV)",
-                data=df.to_csv(index=False).encode('utf-8'),
-                file_name="tweets_analizados.csv",
-                mime="text/csv",
-                help="Descarga un archivo CSV con todos los tweets recolectados y su clasificación de sentimiento."
-            )
+            # # --- Descarga ---
+            # st.markdown("---")
+            # st.subheader("⬇️ Descargar Resultados")
+            # st.download_button(
+            #     label="Descargar resultados completos (CSV)",
+            #     data=df.to_csv(index=False).encode('utf-8'),
+            #     file_name="tweets_analizados.csv",
+            #     mime="text/csv",
+            #     help="Descarga un archivo CSV con todos los tweets recolectados y su clasificación de sentimiento."
+            # )
 
             st.markdown("---")
             st.info("✨ Aplicación creada con Streamlit, Apify y Google Gemini.")
@@ -634,4 +673,3 @@ if st.session_state["logged_in"]:
     main_app()
 else:
     login_page()
-
