@@ -381,7 +381,7 @@ def main_app():
 
         contexto = st.text_area(
             "Contexto para el análisis de sentimiento (opcional)",
-            "Opiniones sobre empresas de tecnología y finanzas en América Latina.",
+            placeholder = "Opiniones sobre empresas de tecnología y finanzas en América Latina.",
             help="Proporciona un contexto a la IA para mejorar la precisión del análisis de sentimiento y la extracción de temas. Por ejemplo: 'Opiniones de clientes sobre un nuevo producto financiero'."
         )
 
@@ -960,21 +960,21 @@ def main_app():
                     pdf.set_text_color(*COLOR_TEXT)
                     pdf.set_font("Arial", '', size)
                     # Changed width from 180 to 175 for safety
-                    pdf.multi_cell(175, 7, eliminar_emojis(texto), align='L')
+                    pdf.multi_cell(0, 7, eliminar_emojis(texto), align='L')
 
                 def write_tema_block(tema, descripcion, ejemplo, usuario):
                     pdf.set_text_color(*COLOR_TEXT)
                     pdf.set_font("Arial", 'B', 12)
                     # Changed width from 180 to 175
-                    pdf.multi_cell(175, 7, eliminar_emojis(tema.upper()), align='L')
+                    pdf.multi_cell(0, 7, eliminar_emojis(tema.upper()), align='L')
                     pdf.set_font("Arial", '', 10)
                     # Changed width from 180 to 175
-                    pdf.multi_cell(175, 6, eliminar_emojis(descripcion), align='L')
+                    pdf.multi_cell(0, 6, eliminar_emojis(descripcion), align='L')
                     pdf.set_text_color(*COLOR_SUBT)
                     pdf.set_font("Arial", 'I', 10)
                     ejem = f'Ejemplo: "{ejemplo}" — @{usuario}' if usuario else f'Ejemplo: "{ejemplo}"'
                     # Changed width from 180 to 175
-                    pdf.multi_cell(175, 6, eliminar_emojis(ejem), align='L')
+                    pdf.multi_cell(0, 6, eliminar_emojis(ejem), align='L')
                     pdf.ln(2)
                     pdf.set_text_color(*COLOR_TEXT)
                 
@@ -1109,6 +1109,7 @@ if st.session_state["logged_in"]:
     main_app()
 else:
     login_page()
+
 
 
 
