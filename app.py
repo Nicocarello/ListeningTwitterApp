@@ -966,14 +966,16 @@ def main_app():
                 def write_tema_block(tema, descripcion, ejemplo, usuario):
                     pdf.set_text_color(*COLOR_TEXT)
                     pdf.set_font("Arial", 'B', 12)
-                    pdf.multi_cell(0, 7, eliminar_emojis(tema.upper()))
+                    # Changed width from 0 to 180
+                    pdf.multi_cell(180, 7, eliminar_emojis(tema.upper()), align='L')
                     pdf.set_font("Arial", '', 10)
-                    # The width is changed from 0 to 180 to ensure proper text wrapping and avoid the error.
-                    pdf.multi_cell(180, 6, eliminar_emojis(descripcion), align='L') 
+                    # This line was already fixed in a previous step
+                    pdf.multi_cell(180, 6, eliminar_emojis(descripcion), align='L')
                     pdf.set_text_color(*COLOR_SUBT)
                     pdf.set_font("Arial", 'I', 10)
                     ejem = f'Ejemplo: "{ejemplo}" — @{usuario}' if usuario else f'Ejemplo: "{ejemplo}"'
-                    pdf.multi_cell(0, 6, eliminar_emojis(ejem))
+                    # Changed width from 0 to 180
+                    pdf.multi_cell(180, 6, eliminar_emojis(ejem), align='L')
                     pdf.ln(2)
                     pdf.set_text_color(*COLOR_TEXT)
                 
@@ -1101,3 +1103,4 @@ if st.session_state["logged_in"]:
     main_app()
 else:
     login_page()
+
