@@ -1059,7 +1059,13 @@ def main_app():
                 _add_top_users_table(pdf, df)
 
 
-                pdf_output = pdf.output(dest='S').encode('latin-1')
+                # ---------- Footer ----------
+                pdf.ln(6)
+                pdf.set_font("Arial", 'I', 10)
+                pdf.cell(0, 10, eliminar_emojis("Reporte generado automáticamente con Streamlit + Gemini."), ln=True, align='C')
+    
+                # Corrected line: Remove the .encode('latin-1')
+                pdf_output = pdf.output(dest='S')
                 buffer = io.BytesIO(pdf_output)
                 return buffer
 
@@ -1103,4 +1109,5 @@ if st.session_state["logged_in"]:
     main_app()
 else:
     login_page()
+
 
