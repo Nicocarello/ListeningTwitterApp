@@ -968,7 +968,8 @@ def main_app():
                     pdf.set_font("Arial", 'B', 12)
                     pdf.multi_cell(0, 7, eliminar_emojis(tema.upper()))
                     pdf.set_font("Arial", '', 10)
-                    pdf.multi_cell(0, 6, eliminar_emojis(descripcion))
+                    # The width is changed from 0 to 180 to ensure proper text wrapping and avoid the error.
+                    pdf.multi_cell(180, 6, eliminar_emojis(descripcion), align='L') 
                     pdf.set_text_color(*COLOR_SUBT)
                     pdf.set_font("Arial", 'I', 10)
                     ejem = f'Ejemplo: "{ejemplo}" — @{usuario}' if usuario else f'Ejemplo: "{ejemplo}"'
@@ -1100,4 +1101,3 @@ if st.session_state["logged_in"]:
     main_app()
 else:
     login_page()
-
