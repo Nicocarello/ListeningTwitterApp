@@ -959,7 +959,9 @@ def main_app():
                 def write_kpi_line(texto, size=11):
                     pdf.set_text_color(*COLOR_TEXT)
                     pdf.set_font("Arial", '', size)
-                    pdf.multi_cell(0, 7, eliminar_emojis(texto))
+                    # The width 180 is chosen to provide a good margin on both sides of an A4 page.
+                    # It ensures the text wraps correctly instead of overflowing.
+                    pdf.multi_cell(180, 7, eliminar_emojis(texto), align='L')
 
                 def write_tema_block(tema, descripcion, ejemplo, usuario):
                     pdf.set_text_color(*COLOR_TEXT)
@@ -1098,3 +1100,4 @@ if st.session_state["logged_in"]:
     main_app()
 else:
     login_page()
+
