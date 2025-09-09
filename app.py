@@ -990,10 +990,11 @@ def main_app():
                 promedio_interacciones = total_interacciones / len(df) if len(df) > 0 else 0
 
 
-                write_kpi_line(f"Tweets recolectados: {len(df)}")
-                write_kpi_line(f"Visualizaciones totales: {int(total_views):,}")
-                write_kpi_line(f"Interacciones totales: {int(total_interacciones):,}")
-                write_kpi_line(f"Promedio por tweet: {int(promedio_vistas):,} vistas / {int(promedio_interacciones):,} interacciones")
+                write_kpi_line(f"Tweets recolectados: {len(df)}", size=11)
+                write_kpi_line(f"Visualizaciones totales: {int(total_views):,}", size=11)
+                write_kpi_line(f"Interacciones totales: {int(total_interacciones):,}", size=11)
+                write_kpi_line(f"Promedio por tweet: {int(promedio_vistas):,} vistas / {int(promedio_interacciones):,} interacciones", size=11)
+
 
                 pdf.ln(2)
 
@@ -1109,5 +1110,6 @@ if st.session_state["logged_in"]:
     main_app()
 else:
     login_page()
+
 
 
