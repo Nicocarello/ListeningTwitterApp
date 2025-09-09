@@ -4,21 +4,13 @@ import streamlit as st
 from apify_client import ApifyClient
 import pandas as pd
 import google.generativeai as genai
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import plotly.express as px
 import re
+import io
 import json
 import random
-import seaborn as sns
-import matplotlib.pyplot as plt
-from fpdf import FPDF
-import io
-from PIL import Image
-import tempfile
-import os
-import requests
-
 
 
 
@@ -141,7 +133,6 @@ def logout():
     st.info("Has cerrado sesión.")
     st.rerun() # Recargar la página para volver a la pantalla de login
 
-
 # --- Contenido principal de la aplicación ---
 def main_app():
     st.image("https://publicalab.com/assets/imgs/logo-publica-blanco.svg", width=200)  # Logo de Publica
@@ -170,7 +161,7 @@ def main_app():
             actor_id = "apidojo/twitter-scraper-lite"
             run_input = {
                 "end": end_date,
-                "maxItems": 100, # Mantener un límite razonable para evitar usos excesivos de la API
+                "maxItems": 10000, # Mantener un límite razonable para evitar usos excesivos de la API
                 "searchTerms": search_terms,
                 "sort": sort_type,
                 "start": start_date
@@ -381,7 +372,7 @@ def main_app():
 
         contexto = st.text_area(
             "Contexto para el análisis de sentimiento (opcional)",
-            placeholder = "Opiniones sobre empresas de tecnología y finanzas en América Latina.",
+            "Opiniones sobre empresas de tecnología y finanzas en América Latina.",
             help="Proporciona un contexto a la IA para mejorar la precisión del análisis de sentimiento y la extracción de temas. Por ejemplo: 'Opiniones de clientes sobre un nuevo producto financiero'."
         )
 
@@ -392,14 +383,6 @@ def main_app():
         st.markdown("---")
         if st.button("Cerrar Sesión", key="logout_sidebar"):
             logout()
-
-
-    def eliminar_emojis(texto):
-        """Quita caracteres que no se pueden codificar en latin-1 (ej. emojis)"""
-        if not isinstance(texto, str):
-            return texto
-        return texto.encode('latin-1', 'ignore').decode('latin-1')
-
 
 
     # --- Contenido principal ---
@@ -448,10 +431,10 @@ def main_app():
 
             st.markdown(f"""
             <div style="text-align: center; padding: 20px 0;">
-                <div style="font-size: 2.2em; font-weight: bold; color: #000000;">
+                <div style="font-size: 2.2em; font-weight: bold; color: #FFFFFF;">
                     📈 Alcance Total: {int(total_views):,} visualizaciones
                 </div>
-                <div style="font-size: 2.2em; font-weight: bold; color: #000000;">
+                <div style="font-size: 2.2em; font-weight: bold; color: #FFFFFF;">
                     💬 Interacciones Totales: {int(total_interacciones):,}
                 </div>
             </div>
@@ -461,7 +444,7 @@ def main_app():
             avg_interacciones = total_interacciones / len(df)
 
             st.markdown(f"""
-            <div style="text-align: center; font-size: 1.5em; color: #000000; margin-top: -10px;">
+            <div style="text-align: center; font-size: 1.5em; color: #FFFFFF; margin-top: -10px;">
                 Promedio por Tweet: {int(avg_views):,} vistas / {int(avg_interacciones):,} interacciones
             </div>
             """, unsafe_allow_html=True)
@@ -576,7 +559,6 @@ def main_app():
                 st.info("No hay datos de seguidores disponibles para mostrar el top 10 de usuarios.")
             # --- FIN TOP 10 Usuarios por Seguidores ---
 
-            # Gráfico de torta con Plotly
             st.subheader("📊 Distribución de Sentimientos")
             counts = df['sentimiento'].value_counts().reset_index()
             counts.columns = ['Sentimiento', 'Cantidad']
@@ -590,14 +572,28 @@ def main_app():
             summary_df['Porcentaje'] = summary_df['Porcentaje'].round(2).astype(str) + '%'
             st.dataframe(summary_df, hide_index=True, use_container_width=True)
 
-            # Crear el gráfico de torta con Matplotlib/Seaborn, ahora más pequeño y con labels reducidos
-            colors = ['#F44336',"#797979","#11D54F"]
-            plt.figure(figsize=(3, 3)) 
-            plt.pie(counts['Cantidad'], labels=counts['Sentimiento'], autopct='%1.1f%%', startangle=140, colors=colors, textprops={'fontsize': 6})
-            plt.title('Distribución de Sentimientos de los Tweets', fontsize=6)
-            plt.axis('equal')  # Ensures the pie chart is circular
-            plt.tight_layout() 
-            st.pyplot(plt, use_container_width=False) # <--- AQUI ESTA LA CLAVE
+            # Gráfico de torta con Plotly
+            fig = px.pie(
+                counts,
+                values='Cantidad',
+                names='Sentimiento',
+                title='Distribución de Sentimientos de los Tweets',
+                hover_data=['Porcentaje'],
+                labels={'Porcentaje': 'Porcentaje (%)'},
+                color='Sentimiento',
+                color_discrete_map={
+                    'POSITIVO': '#4CAF50', # Green
+                    'NEGATIVO': '#F44336', # Red
+                    'NEUTRO': '#9E9E9E'     # Grey
+                }
+            )
+
+            fig.update_traces(textposition='inside', textinfo='percent+label', marker=dict(line=dict(color='#000000', width=1)))
+            fig.update_layout(
+                margin=dict(t=40, b=0, l=0, r=0),
+                legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="right", x=1)
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
 
             # --- Temas principales por sentimiento ---
@@ -635,439 +631,26 @@ def main_app():
                     xaxis_label = 'Mes'
 
                 # --- MÉTRICA: Evolución temporal de tweets ---
-            st.markdown("---")
-            st.subheader("📈 Evolución de Tweets en el Tiempo")
-
-            tweet_count_timeline = df.groupby('time_bucket').size().reset_index(name='Cantidad de Tweets')
-
-            # Use Seaborn to create the line plot, now more compact
-            plt.figure(figsize=(5, 3)) 
-            ax = sns.lineplot(
-                data=tweet_count_timeline,
-                x='time_bucket',
-                y='Cantidad de Tweets',
-                linewidth=0.8
-            )
-            plt.title('Cantidad de Tweets por ' + xaxis_label, fontsize=6)
-            plt.xlabel(xaxis_label, fontsize=4)
-            plt.ylabel('Número de Tweets', fontsize=4)
-            plt.xticks(rotation=45, ha='right', fontsize=4)
-            plt.yticks(fontsize=4)
-            ax.set_ylim(bottom=0)  # <-- Eje Y empieza en 0
-            plt.tight_layout() 
-            st.pyplot(plt, use_container_width=False) # <--- AQUI ESTA LA CLAVE
-
-            # Guardar gráficos como imágenes
-            grafico_sentimiento_buf = io.BytesIO()
-            plt.figure(figsize=(3, 3))
-            plt.pie(counts['Cantidad'], labels=counts['Sentimiento'], autopct='%1.1f%%', startangle=140, colors=colors, textprops={'fontsize': 6})
-            plt.title('Distribución de Sentimientos de los Tweets', fontsize=6)
-            plt.axis('equal')
-            plt.tight_layout()
-            plt.savefig(grafico_sentimiento_buf, format='png', dpi=300)
-            grafico_sentimiento_buf.seek(0)
-
-            # --- Línea temporal
-            grafico_timeline_buf = io.BytesIO()
-            plt.figure(figsize=(5, 3))
-            sns.lineplot(data=tweet_count_timeline, x='time_bucket', y='Cantidad de Tweets', linewidth=0.8)
-            plt.title('Cantidad de Tweets por ' + xaxis_label, fontsize=6)
-            plt.xlabel(xaxis_label, fontsize=4)
-            plt.ylabel('Número de Tweets', fontsize=4)
-            plt.xticks(rotation=45, ha='right', fontsize=4)
-            plt.yticks(fontsize=4)
-            plt.tight_layout()
-            plt.savefig(grafico_timeline_buf, format='png')
-            grafico_timeline_buf.seek(0)
-            temas_por_sentimiento = {}
-            for tipo in ["POSITIVO", "NEGATIVO", "NEUTRO"]:
-                subset = df[df["sentimiento"] == tipo]["text"].astype(str).tolist()
-                if subset:
-                    resumen = extraer_temas_con_ia(subset, tipo, contexto)
-                    temas_por_sentimiento[tipo] = resumen
-                    with st.expander(f"Mostrar temas **{tipo}** ({len(subset)} tweets)"):
-                        mostrar_temas_con_contraste(resumen)
-                else:
-                    temas_por_sentimiento[tipo] = "No hay tweets para este sentimiento."
-
-
-
-
-            def parse_temas_formateados(texto_temas):
-                """
-                Devuelve una lista de dicts con {tema, descripcion, ejemplo, usuario}.
-                Soporta el formato:
-                1. [Nombre del tema]
-                [Breve explicación]
-                Ejemplo: "[tweet de ejemplo]", [author/userName: usuario]
-                """
-                if not texto_temas:
-                    return []
-
-                pattern = r"(\d+)\.\s*([^\n]+)\n(.*?)\nEjemplo:\s*\"([^\"]+)\",\s*\[author/userName:\s*([^\]]+)\]"
-                matches = re.findall(pattern, texto_temas, re.MULTILINE | re.DOTALL)
-
-                items = []
-                for _, tema, descripcion, ejemplo, usuario in matches:
-                    items.append({
-                        "tema": (tema or "").strip(),
-                        "descripcion": (descripcion or "").strip(),
-                        "ejemplo": (ejemplo or "").strip(),
-                        "usuario": (usuario or "").strip()
-                    })
-                return items
-                        
-            # --- Helper functions for PDF generation ---
-            # Global cache for profile pictures to avoid re-downloading
-            _profile_pic_cache = {}
-
-            def _fetch_profile_pic(url, username=""):
-                """
-                Fetches a profile picture from a URL and returns its path.
-                Caches the image to a temporary file.
-                Returns a default placeholder if the download fails.
-                """
-                if not url:
-                    return None # No URL provided
-
-                if url in _profile_pic_cache:
-                    return _profile_pic_cache[url]
-
-                try:
-                    response = requests.get(url, stream=True, timeout=5)
-                    response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
-
-                    img_data = io.BytesIO(response.content)
-                    img = Image.open(img_data)
-
-                    # Create a unique temporary file name
-                    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
-                    img.save(temp_file.name, format="PNG") # Convert to PNG for FPDF compatibility
-                    temp_file_path = temp_file.name
-                    temp_file.close()
-
-                    _profile_pic_cache[url] = temp_file_path
-                    return temp_file_path
-                except requests.exceptions.RequestException as e:
-                    print(f"Error downloading profile pic for {username} from {url}: {e}")
-                    return None
-                except Exception as e:
-                    print(f"Error processing profile pic for {username} from {url}: {e}")
-                    return None
-
-            def _fmt_int(x):
-                try:
-                    return f"{int(x):,}"
-                except:
-                    return "-"
-                
-
-            def _fmt_date(dtlike):
-                if not dtlike:
-                    return "-"
-                try:
-                    if isinstance(dtlike, str):
-                        return datetime.fromisoformat(str(dtlike).replace("Z","")).strftime("%Y-%m-%d")
-                    return dtlike.strftime("%Y-%m-%d")
-                except:
-                    return str(dtlike)[:10]
-
-            def _truncate(text, max_chars=120):
-                s = str(text or "").replace("\n"," ").strip()
-                return (s[:max_chars] + "…") if len(s) > max_chars else s
-
-            def _table_header(pdf, cols, widths, fill_rgb=(240,242,245), text_rgb=(0,0,0)):
-                pdf.set_fill_color(*fill_rgb)
-                pdf.set_text_color(*text_rgb)
-                pdf.set_font("Arial", 'B', 10)
-                for title, w in zip(cols, widths):
-                    pdf.cell(w, 8, title, border=1, ln=0, align='C', fill=True)
-                pdf.ln(8)
-                pdf.set_text_color(0,0,0)
-                pdf.set_font("Arial", '', 9)
-
-            def _ensure_page_space(pdf, needed_h=12):
-                if pdf.get_y() + needed_h > pdf.page_break_trigger:
-                    pdf.add_page()
-
-            
-            def _add_top_tweets_table(pdf, df):
-                """
-                Adds the Top 10 Tweets as a formatted table to the PDF, including profile pictures.
-                """
-                pdf.ln(5)
-
-                # Define columns and widths
-                # Added 'Pic' column, adjusted other widths slightly
-                cols = ['Pic', 'Tweet', 'Usuario', 'Seguidores', 'Fecha', 'Vistas']
-                # Total width: 5 (pic) + 70 (tweet) + 30 (user) + 25 (followers) + 20 (date) + 20 (views) = 170mm
-                widths = [8, 65, 30, 25, 20, 20] # Adjust widths to fit all columns.
-
-                _table_header(pdf, cols, widths)
-
-                pdf.set_font("Arial", '', 8)
-
-                top_10 = df.sort_values(by='viewCount', ascending=False).head(10)
-
-                # Fixed height for each row to accommodate the profile picture
-                # This means the tweet text might be truncated more aggressively
-                ROW_HEIGHT = 10 # mm, this will be the height of each table row
-
-                for _, row in top_10.iterrows():
-                    _ensure_page_space(pdf, needed_h=ROW_HEIGHT + 2) # Add a small buffer
-
-                    current_x = pdf.get_x()
-                    current_y = pdf.get_y()
-
-                    # 1. Profile Picture
-                    profile_pic_url = row.get('author/profilePicture', '')
-                    username = row.get('author/userName', 'unknown')
-                    pic_path = _fetch_profile_pic(profile_pic_url, username)
-                    
-                    pic_x = current_x + (widths[0] - 6) / 2 # Center image
-                    pic_y = current_y + (ROW_HEIGHT - 6) / 2 # Center image
-                    
-                    if pic_path:
-                        pdf.image(pic_path, x=pic_x, y=pic_y, w=6, h=6) # 6x6mm image
-                    else:
-                        # Draw a simple grey square placeholder if image fails to load
-                        pdf.set_fill_color(200, 200, 200)
-                        pdf.rect(pic_x, pic_y, 6, 6, 'F')
-                        pdf.set_fill_color(255, 255, 255) # Reset fill color
-
-                    # Draw cell border for pic
-                    pdf.set_xy(current_x, current_y)
-                    pdf.cell(widths[0], ROW_HEIGHT, '', border=1, ln=0, align='C')
-
-                    # 2. Tweet Text (truncated to fit)
-                    text = _truncate(row.get('text', '-'), max_chars=80) # More aggressive truncation
-                    pdf.set_xy(current_x + widths[0], current_y)
-                    pdf.multi_cell(widths[1], ROW_HEIGHT/2, eliminar_emojis(text), border=1, align='L')
-
-                    # 3. User Name
-                    username_text = _truncate(row.get('author/userName', '-'), max_chars=18)
-                    pdf.set_xy(current_x + widths[0] + widths[1], current_y)
-                    pdf.cell(widths[2], ROW_HEIGHT, eliminar_emojis(username_text), border=1, ln=0, align='C')
-
-                    # 4. Followers
-                    followers = _fmt_int(row.get('author/followers', 0))
-                    pdf.set_xy(current_x + widths[0] + widths[1] + widths[2], current_y)
-                    pdf.cell(widths[3], ROW_HEIGHT, followers, border=1, ln=0, align='C')
-
-                    # 5. Created At
-                    createdAt = _fmt_date(row.get('createdAt', '-'))
-                    pdf.set_xy(current_x + widths[0] + widths[1] + widths[2] + widths[3], current_y)
-                    pdf.cell(widths[4], ROW_HEIGHT, createdAt, border=1, ln=0, align='C')
-
-                    # 6. View Count
-                    viewCount = _fmt_int(row.get('viewCount', 0))
-                    pdf.set_xy(current_x + widths[0] + widths[1] + widths[2] + widths[3] + widths[4], current_y)
-                    pdf.cell(widths[5], ROW_HEIGHT, viewCount, border=1, ln=1, align='C') # ln=1 to move to next line
-
-                # Important: Clean up temporary files after PDF generation
-                for path in _profile_pic_cache.values():
-                    try:
-                        os.remove(path)
-                    except OSError as e:
-                        print(f"Error removing temporary file {path}: {e}")
-                _profile_pic_cache.clear() # Clear the cache
-
-
-            def _add_top_users_table(pdf, df):
-                """
-                Adds the Top 10 Users as a formatted table to the PDF, including profile pictures.
-                """
-                pdf.ln(5)
-
-                # Define columns and widths for the user table
-                cols = ['Pic', 'Usuario', 'Seguidores']
-                widths = [10, 80, 40]
-                
-                _table_header(pdf, cols, widths)
-                pdf.set_font("Arial", '', 9)
-
-                # Agrupar por usuario para obtener el máximo de seguidores y la primera foto de perfil
-                top_users_df = df.dropna(subset=['author/followers', 'author/userName'])
-                top_users_df = top_users_df.groupby('author/userName').agg(
-                    **{'author/followers': pd.NamedAgg(column='author/followers', aggfunc='max'),
-                    'author/profilePicture': pd.NamedAgg(column='author/profilePicture', aggfunc='first')}
-                ).reset_index()
-                top_users = top_users_df.sort_values(by='author/followers', ascending=False).head(10)
-                
-                ROW_HEIGHT = 12 # Fixed height for each row
-
-                for _, row in top_users.iterrows():
-                    _ensure_page_space(pdf, needed_h=ROW_HEIGHT + 2)
-                    
-                    current_x = pdf.get_x()
-                    current_y = pdf.get_y()
-                    
-                    # 1. Profile Picture
-                    profile_pic_url = row.get('author/profilePicture', '')
-                    username = row.get('author/userName', 'unknown')
-                    pic_path = _fetch_profile_pic(profile_pic_url, username)
-                    
-                    pic_x = current_x + (widths[0] - 8) / 2
-                    pic_y = current_y + (ROW_HEIGHT - 8) / 2
-                    
-                    if pic_path:
-                        pdf.image(pic_path, x=pic_x, y=pic_y, w=8, h=8)
-                    else:
-                        pdf.set_fill_color(200, 200, 200)
-                        pdf.rect(pic_x, pic_y, 8, 8, 'F')
-                        pdf.set_fill_color(255, 255, 255)
-
-                    pdf.set_xy(current_x, current_y)
-                    pdf.cell(widths[0], ROW_HEIGHT, '', border=1, ln=0, align='C')
-                    
-                    # 2. User Name
-                    username_text = _truncate(row.get('author/userName', '-'), max_chars=40)
-                    pdf.set_xy(current_x + widths[0], current_y)
-                    pdf.cell(widths[1], ROW_HEIGHT, eliminar_emojis(username_text), border=1, ln=0, align='C')
-                    
-                    # 3. Followers
-                    followers = _fmt_int(row.get('author/followers', 0))
-                    pdf.set_xy(current_x + widths[0] + widths[1], current_y)
-                    pdf.cell(widths[2], ROW_HEIGHT, followers, border=1, ln=1, align='C')
-
-                # Cleanup temporary files
-                for path in _profile_pic_cache.values():
-                    try:
-                        os.remove(path)
-                    except OSError as e:
-                        print(f"Error removing temporary file {path}: {e}")
-                _profile_pic_cache.clear()
-
-            # --- Updated `generar_pdf` function ---
-            def generar_pdf(df, resumen_sentimientos, temas_generales, temas_por_sentimiento,
-                            grafico_sentimiento, grafico_timeline):
-                pdf = FPDF()
-                pdf.set_auto_page_break(auto=True, margin=15)
-                pdf.add_page()
-
-                COLOR_BG_HEADER = (240, 242, 245)
-                COLOR_TEXT = (0, 0, 0)
-                COLOR_SUBT = (80, 80, 80)
-
-                def section_header(texto):
-                    pdf.set_fill_color(*COLOR_BG_HEADER)
-                    pdf.set_text_color(*COLOR_TEXT)
-                    pdf.set_font("Arial", 'B', 14)
-                    pdf.cell(0, 10, eliminar_emojis(texto), ln=True, fill=True)
-                    pdf.ln(2)
-
-                def write_kpi_line(texto, size=11):
-                    pdf.set_text_color(*COLOR_TEXT)
-                    pdf.set_font("Arial", '', size)
-                    # Changed width from 180 to 175 for safety
-                    pdf.multi_cell(10, 7, eliminar_emojis(texto), align='L')
-
-                def write_tema_block(tema, descripcion, ejemplo, usuario):
-                    pdf.set_text_color(*COLOR_TEXT)
-                    pdf.set_font("Arial", 'B', 12)
-                    # Changed width from 180 to 175
-                    pdf.multi_cell(10, 7, eliminar_emojis(tema.upper()), align='L')
-                    pdf.set_font("Arial", '', 10)
-                    # Changed width from 180 to 175
-                    pdf.multi_cell(10, 6, eliminar_emojis(descripcion), align='L')
-                    pdf.set_text_color(*COLOR_SUBT)
-                    pdf.set_font("Arial", 'I', 10)
-                    ejem = f'Ejemplo: "{ejemplo}" — @{usuario}' if usuario else f'Ejemplo: "{ejemplo}"'
-                    # Changed width from 180 to 175
-                    pdf.multi_cell(10, 6, eliminar_emojis(ejem), align='L')
-                    pdf.ln(2)
-                    pdf.set_text_color(*COLOR_TEXT)
-                
-                # ---------- Portada / Métricas ----------
-                pdf.set_font("Arial", 'B', 16)
-                pdf.cell(0, 10, eliminar_emojis("Reporte de Scraping y Análisis de Tweets"), ln=True, align='C')
-                pdf.ln(5)
-
-                total_views = df['viewCount'].sum()
-                total_interacciones = df[['likeCount', 'replyCount', 'retweetCount', 'quoteCount', 'bookmarkCount']].fillna(0).sum().sum()
-                promedio_vistas = total_views / len(df) if len(df) > 0 else 0
-                promedio_interacciones = total_interacciones / len(df) if len(df) > 0 else 0
-
-
-                write_kpi_line(f"Tweets recolectados: {len(df)}", size=11)
-                write_kpi_line(f"Visualizaciones totales: {int(total_views):,}", size=11)
-                write_kpi_line(f"Interacciones totales: {int(total_interacciones):,}", size=11)
-                write_kpi_line(f"Promedio por tweet: {int(promedio_vistas):,} vistas / {int(promedio_interacciones):,} interacciones", size=11)
-
-
-                pdf.ln(2)
-
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img2:
-                    tmp_img2.write(grafico_timeline.getvalue())
-                    tmp_img2_path = tmp_img2.name
-                pdf.image(tmp_img2_path, w=170)
-                os.remove(tmp_img2_path)
-
-                # ---------- Temas Generales ----------
-                pdf.add_page()
-                COLOR_BG_HEADER = (255, 165, 0)
-                section_header("Temas Generales")
-                COLOR_BG_HEADER = (240, 242, 245)
-
-                items_generales = parse_temas_formateados(temas_generales)
-                if items_generales:
-                    for it in items_generales:
-                        write_tema_block(it["tema"], it["descripcion"], it["ejemplo"], it["usuario"])
-                else:
-                    write_kpi_line(temas_generales or "Sin información")
-
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img:
-                    tmp_img.write(grafico_sentimiento.getvalue())
-                    tmp_img_path = tmp_img.name
-                pdf.image(tmp_img_path, w=170)
-                os.remove(tmp_img_path)
-                pdf.ln(2)
-
-                # ---------- Temas por Sentimiento ----------
-                pdf.add_page()
-                for tipo, resumen in temas_por_sentimiento.items():
-                    pdf.ln(1)
-                    if tipo == "POSITIVO":
-                        COLOR_BG_HEADER = (76, 175, 80)
-                    elif tipo == "NEGATIVO":
-                        COLOR_BG_HEADER = (244, 67, 54)
-                    else:
-                        COLOR_BG_HEADER = (158, 158, 158)
-
-                    section_header(f"Temas {tipo}")
-                    COLOR_BG_HEADER = (240, 242, 245)
-
-                    items = parse_temas_formateados(resumen)
-                    if items:
-                        for it in items:
-                            write_tema_block(it["tema"], it["descripcion"], it["ejemplo"], it["usuario"])
-                    else:
-                        write_kpi_line(resumen or "No se encontraron temas.")
-                    pdf.add_page()
-
-                # ---------- Top 10 Tweets (TABLE) ----------
-                COLOR_BG_HEADER = (255, 165, 0)
-                section_header("Top 10 Tweets Más Vistos")
-                COLOR_BG_HEADER = (240, 242, 245)
-                _add_top_tweets_table(pdf, df)
-
-                # ---------- Top 10 Usuarios (TABLE) ----------
-                pdf.add_page()
-                COLOR_BG_HEADER = (255, 165, 0)
-                section_header("Top 10 Usuarios con Más Seguidores")
-                COLOR_BG_HEADER = (240, 242, 245)
-                _add_top_users_table(pdf, df)
-
-
-                # ---------- Footer ----------
-                pdf.ln(6)
-                pdf.set_font("Arial", 'I', 10)
-                pdf.cell(0, 10, eliminar_emojis("Reporte generado automáticamente con Streamlit + Gemini."), ln=True, align='C')
-    
-                # Corrected line: Remove the .encode('latin-1')
-                pdf_output = pdf.output(dest='S')
-                buffer = io.BytesIO(pdf_output)
-                return buffer
+                st.markdown("---")
+                st.subheader("📈 Evolución de Tweets en el Tiempo")
+
+                tweet_count_timeline = df.groupby('time_bucket').size().reset_index(name='Cantidad de Tweets')
+
+                fig_timeline = px.line(
+                    tweet_count_timeline,
+                    x='time_bucket',
+                    y='Cantidad de Tweets',
+                    title='Cantidad de Tweets por ' + xaxis_label,
+                    markers=True,
+                    line_shape='spline'
+                )
+                fig_timeline.update_layout(
+                    xaxis_title=xaxis_label,
+                    yaxis_title='Número de Tweets',
+                    margin=dict(t=40, b=0, l=0, r=0),
+                    yaxis_range=[0, None]
+                )
+                st.plotly_chart(fig_timeline, use_container_width=True)
 
 
             # # --- Descarga ---
@@ -1082,25 +665,6 @@ def main_app():
             # )
 
             st.markdown("---")
-            st.subheader("⬇️ Descargar Reporte en PDF")
-
-            pdf_buffer = generar_pdf(
-                df=df,
-                resumen_sentimientos=summary_df,
-                temas_generales=temas_generales,
-                temas_por_sentimiento=temas_por_sentimiento,
-                grafico_sentimiento=grafico_sentimiento_buf,
-                grafico_timeline=grafico_timeline_buf
-            )
-
-            st.download_button(
-                label="📄 Descargar Reporte PDF",
-                data=pdf_buffer,
-                file_name="reporte_tweets.pdf",
-                mime="application/pdf"
-            )
-
-            st.markdown("---")
             st.info("✨ Aplicación creada con Streamlit, Apify y Google Gemini.")
 
 
@@ -1109,9 +673,3 @@ if st.session_state["logged_in"]:
     main_app()
 else:
     login_page()
-
-
-
-
-
-
