@@ -959,23 +959,22 @@ def main_app():
                 def write_kpi_line(texto, size=11):
                     pdf.set_text_color(*COLOR_TEXT)
                     pdf.set_font("Arial", '', size)
-                    # The width 180 is chosen to provide a good margin on both sides of an A4 page.
-                    # It ensures the text wraps correctly instead of overflowing.
-                    pdf.multi_cell(180, 7, eliminar_emojis(texto), align='L')
+                    # Changed width from 180 to 175 for safety
+                    pdf.multi_cell(175, 7, eliminar_emojis(texto), align='L')
 
                 def write_tema_block(tema, descripcion, ejemplo, usuario):
                     pdf.set_text_color(*COLOR_TEXT)
                     pdf.set_font("Arial", 'B', 12)
-                    # Changed width from 0 to 180
-                    pdf.multi_cell(180, 7, eliminar_emojis(tema.upper()), align='L')
+                    # Changed width from 180 to 175
+                    pdf.multi_cell(175, 7, eliminar_emojis(tema.upper()), align='L')
                     pdf.set_font("Arial", '', 10)
-                    # This line was already fixed in a previous step
-                    pdf.multi_cell(180, 6, eliminar_emojis(descripcion), align='L')
+                    # Changed width from 180 to 175
+                    pdf.multi_cell(175, 6, eliminar_emojis(descripcion), align='L')
                     pdf.set_text_color(*COLOR_SUBT)
                     pdf.set_font("Arial", 'I', 10)
                     ejem = f'Ejemplo: "{ejemplo}" — @{usuario}' if usuario else f'Ejemplo: "{ejemplo}"'
-                    # Changed width from 0 to 180
-                    pdf.multi_cell(180, 6, eliminar_emojis(ejem), align='L')
+                    # Changed width from 180 to 175
+                    pdf.multi_cell(175, 6, eliminar_emojis(ejem), align='L')
                     pdf.ln(2)
                     pdf.set_text_color(*COLOR_TEXT)
                 
@@ -1110,6 +1109,7 @@ if st.session_state["logged_in"]:
     main_app()
 else:
     login_page()
+
 
 
 
