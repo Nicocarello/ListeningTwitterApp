@@ -375,7 +375,16 @@ def main_app():
 
             # Procesamiento de términos
             # split by comma or new line
-            terms = [s.strip() for s in re.split(r'[,\n]', search_terms_input) if s.strip()]
+            # Dividir por salto de línea **primero** y limpiar espacios
+            terms = [t.strip() for t in search_terms_input.split("\n") if t.strip()]
+            
+            # Permitir también comas dentro de una misma línea
+            final_terms = []
+            for t in terms:
+                final_terms.extend([x.strip() for x in t.split(",") if x.strip()])
+            
+            terms = list(set(final_terms))  # eliminar duplicados
+
             if not terms:
                 st.warning("Por favor, introduce al menos un término de búsqueda.")
                 st.stop()
@@ -384,11 +393,26 @@ def main_app():
             end_str = end_date.strftime("%Y-%m-%d")
 
             with st.spinner("Buscando tweets... esto puede tardar un momento."):
-                df_top = get_twitter_data(terms, start_str, end_str, "Top")
-                # df_latest = get_twitter_data(terms, start_str, end_str, "Latest")
+                all_results = []
 
-            # df = pd.concat([df_top, df_latest]).drop_duplicates(subset=["url"]).reset_index(drop=True)
-            df = df_top.drop_duplicates(subset=["url"]).reset_index(drop=True)
+                for term in terms:
+                    with st.spinner(f"Buscando tweets para: {term}..."):
+                        df_term = get_twitter_data([term], start_str, end_str, "Top")
+                        if not df_term.empty:
+                            df_term["search_term"] = term  # para saber origen del tweet
+                            all_results.append(df_term)
+                
+                if not all_results:
+                    st.warning("No se encontraron tweets para ninguno de los términos ingresados.")
+                    st.stop()
+                
+                df = pd.concat(all_results, ignore_index=True)
+                
+                # Eliminar duplicados por URL
+                df = df.drop_duplicates(subset=["url"]).reset_index(drop=True)
+                
+                st.success(f"Se encontraron {len(df)} tweets únicos combinando todos los términos.")
+
 
             if df.empty:
                 st.warning("😔 No se encontraron tweets con los términos y fechas seleccionados. Intenta con otros parámetros.")
@@ -646,5 +670,6 @@ def main_app():
 
 # --- Entry point ---
 main_app()
+
 
 
