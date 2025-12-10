@@ -26,9 +26,6 @@ st.set_page_config(
 # Por ejemplo, si los correos son 'usuario@miempresa.com', entonces el dominio es 'miempresa.com'.
 COMPANY_EMAIL_DOMAIN = "publicalatam.com" # <--- ¡CAMBIA ESTO!
 
-# --- Inicializar el estado de la sesión ---
-if "logged_in" not in st.session_state:
-    st.session_state["logged_in"] = False
 
 # --- CSS personalizado ---
 st.markdown(
@@ -111,27 +108,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- Función de Login ---
-def login_page():
-    st.title("Iniciar Sesión")
-    
-    # Mostrar la imagen desde la URL
-    st.image("https://publicalab.com/assets/imgs/logo-publica-blanco.svg", width=300)  # Ajusta el tamaño según sea necesario
-    email = st.text_input("Correo Electrónico")
-    if st.button("Ingresar"):
-        if email.endswith(COMPANY_EMAIL_DOMAIN):
-            st.session_state.logged_in = True
-            st.session_state.email = email
-            st.success("¡Inicio de sesión exitoso!")
-            st.rerun()  # Recargar la página para mostrar la app principal
-        else:
-            st.error("Por favor, ingresa un correo electrónico válido.")
-
-# --- Función de Logout ---
-def logout():
-    st.session_state["logged_in"] = False
-    st.info("Has cerrado sesión.")
-    st.rerun() # Recargar la página para volver a la pantalla de login
 
 # --- Contenido principal de la aplicación ---
 def main_app():
@@ -668,8 +644,7 @@ def main_app():
             st.info("✨ Aplicación creada con Streamlit, Apify y Google Gemini.")
 
 
-# --- Lógica principal para mostrar la página de login o la aplicación ---
-if st.session_state["logged_in"]:
-    main_app()
-else:
-    login_page()
+# --- Entry point ---
+main_app()
+
+
